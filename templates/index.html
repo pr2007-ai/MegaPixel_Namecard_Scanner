@@ -34,7 +34,7 @@
     <!-- ===== VIDEO SECTION ===== -->
     <section class="video-section">
       <video class="video-bg" autoplay muted loop playsinline>
-        <source src="..\static\images&videos\circuit_video.mp4" type="video/mp4" />
+        <source src="{{url_for('static', filename='images&videos/circuit_video.mp4')}}" type="video/mp4" />
         Your browser does not support the video tag.
       </video>
 
@@ -56,7 +56,7 @@
         <div class="about-media">
           <div class="about-photo-frame">
             <img
-              src="C:\Users\prera\OneDrive\Desktop\Y2\AIEP-namecard\MegaPixel_Namecard_Scanner\static\images&videos\homepage_image.jpg"
+              src="{{url_for('static', filename='images&videos/homepage_image.jpg')}}"
               alt="Business professional holding the future of digital contacts"
             />
           </div>
@@ -134,6 +134,6 @@
     </div>
   </footer>
 
-  <script src="../static/index.js"></script>
+  <script src="{{url_for('static', filename='index.js')}}"></script>
 </body>
 </html>
