@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Megapixel Smart Name Card Organizer - Home</title>
+  <title>Megapixel Smart Name Card Organizer - Home 1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="..\static\style.css" />
-  <link rel="icon" href="..\static\images&videos\megapixel_sg_logo.jpg">
+  <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}" />
+  <link rel="icon" href="{{url_for('static', filename='images&videos/megapixel_sg_logo.jpg')}}">
 </head>
 <body>
   <!-- ===== HEADER ===== -->
@@ -13,7 +13,7 @@
     <div class="header-inner">
       <div class="logo-area">
         <div class="logo-circle">
-          <img src="C:\Users\prera\OneDrive\Desktop\Y2\AIEP-namecard\MegaPixel_Namecard_Scanner\static\images&videos\megapixel_sg_logo.jpg" alt="Megapixel Logo" />
+          <img src="{{url_for('static', filename='images&videos/megapixel_sg_logo.jpg')}}" alt="Megapixel Logo" />
         </div>
         <div class="logo-text">
           <span class="logo-title">Megapixel Smart Name Card Organizer</span>
