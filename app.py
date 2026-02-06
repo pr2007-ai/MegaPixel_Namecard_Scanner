@@ -20,6 +20,17 @@ def get_db_connection():
 def home():
     return render_template("index.html")
 
+@app.route("/info.html")
+def info():
+    return render_template("info.html")
+
+@app.route("/chat.html")
+def chat():
+    return render_template("chat.html")
+
+@app.route("/upload.html")
+def upload():
+    return render_template("upload.html")
 
 @app.route("/test-db")
 def test_db():
