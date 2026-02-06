@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Megapixel Smart Name Card Organizer - Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="/images&videos/megapixel_sg_logo.jpg">
+</head>
+<body>
+  <!-- ===== HEADER / BANNER ===== -->
+  <header class="site-header" id="top">
+    <div class="header-inner">
+      <div class="logo-area">
+        <div class="logo-circle">
+          <img src="images&videos/megapixel_sg_logo.jpg" alt="Megapixel Logo">
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">Megapixel Smart Name Card Organizer</span>
+        </div>
+      </div>
+
+      <nav class="main-nav">
+        <button class="nav-link nav-home">Home</button>
+        <button class="nav-link nav-company">Company Info</button>
+        <button class="nav-link nav-upload nav-current">Upload</button>
+        <button class="nav-link nav-chat">Chat Bot</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="upload-main">
+    <section class="upload-header">
+      <p class="upload-header-label">Upload Name Cards</p>
+      <h1 class="upload-header-title">Digitize your name cards in a few simple steps.</h1>
+      <p class="upload-header-description">
+        Upload one photo at a time. We’ll extract the key information using Azure OCR,
+        then let you review and edit before saving to the database.
+      </p>
+    </section>
+
+    <section class="upload-layout">
+      <div class="upload-card">
+        <h2>How to use this page</h2>
+        <ol class="upload-list">
+          <li>Click on the upload area below.</li>
+          <li>Select a single image of a name card.</li>
+          <li>Wait for processing.</li>
+          <li>Review extracted fields.</li>
+          <li>Submit to database.</li>
+        </ol>
+      </div>
+
+      <div class="upload-card">
+        <h2>Upload rules</h2>
+        <ul class="upload-list">
+          <li>One name card per upload.</li>
+          <li>Clear, readable images only.</li>
+          <li>Actual business name cards only.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="upload-area">
+      <h2 class="upload-area-title">Upload your name card</h2>
+      <p class="upload-area-hint">Click the rectangle below to select a single image file.</p>
+
+      <div class="upload-dropzone" id="uploadDropzone">
+        <div class="upload-drop-content">
+          <div class="upload-icon">⬆</div>
+          <p class="upload-drop-text">Click to choose a name card image</p>
+          <p class="upload-drop-subtext">Supported: .jpg, .jpeg, .png</p>
+        </div>
+        <input type="file" id="uploadInput" accept="image/*" hidden />
+      </div>
+    </section>
+
+  </main>
+
+  <div class="upload-modal-backdrop" id="uploadModalBackdrop">
+    <div class="upload-modal">
+      <div class="upload-modal-header">
+        <h2>Review Extracted Details</h2>
+        <button class="modal-close-btn" id="modalCloseBtn">&times;</button>
+      </div>
+
+      <div class="upload-modal-body">
+        <div class="field-group">
+          <label for="firstNameInput">First Name</label>
+          <input type="text" id="firstNameInput" />
+        </div>
+
+        <div class="field-group">
+          <label for="lastNameInput">Last Name</label>
+          <input type="text" id="lastNameInput" />
+        </div>
+
+        <div class="field-group">
+          <label for="jobTitleInput">Job Title</label>
+          <input type="text" id="jobTitleInput" />
+        </div>
+
+        <div class="field-group">
+          <label for="officeEmailInput">Office Email</label>
+          <input type="email" id="officeEmailInput" />
+        </div>
+
+        <div class="field-group">
+          <label for="privateEmailInput">Private Email</label>
+          <input type="email" id="privateEmailInput" />
+        </div>
+
+        <div class="field-group">
+          <label for="officeNameInput">Office Name</label>
+          <input type="text" id="officeNameInput" />
+        </div>
+
+        <div class="field-group">
+          <label for="phoneNumberInput">Phone Number</label>
+          <input type="text" id="phoneNumberInput" />
+        </div>
+
+        <div class="field-group">
+          <label for="industryInput">Industry</label>
+          <input type="text" id="industryInput" />
+        </div>
+
+        <div class="field-group">
+          <label for="companyLogoInput">Company Logo (URL or notes)</label>
+          <input type="text" id="companyLogoInput" />
+        </div>
+      </div>
+
+      <div class="upload-modal-footer">
+        <button class="modal-secondary-btn" id="modalCancelBtn">Cancel</button>
+        <button class="modal-primary-btn" id="modalSubmitBtn">
+          Submit
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-section">
+        <h3>Contact</h3>
+        <a href="https://megapixel.sg/">Official Website</a>
+        <p>Phone: +65 9723 4522</p>
+      </div>
+
+      <div class="footer-section">
+        <h3>Socials</h3>
+        <p>
+          <a href="https://www.facebook.com/megapixel.sg" class="footer-link">Facebook</a> ·
+          <a href="https://www.linkedin.com/company/megapixel-sg" class="footer-link">LinkedIn</a>
+        </p>
+      </div>
+
+      <div class="footer-section footer-note">
+        <p>© 2026 Megapixel Smart Name Card Organizer.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="index.js"></script>
+  <script src="upload.js"></script>
+</body>
+</html>

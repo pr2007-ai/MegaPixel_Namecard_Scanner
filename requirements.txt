@@ -1,0 +1,5 @@
+flask 
+pyodbc
+azure-identity 
+python-dotenv
+gunicorn 

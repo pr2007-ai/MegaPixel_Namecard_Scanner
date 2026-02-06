@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Megapixel Smart Name Card Organizer - Chat Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="/images&videos/megapixel_sg_logo.jpg">
+</head>
+<body>
+  <header class="site-header" id="top">
+    <div class="header-inner">
+      <div class="logo-area">
+        <div class="logo-circle">
+          <img src="images&videos/megapixel_sg_logo.jpg" alt="Megapixel Logo">
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">Megapixel Smart Name Card Organizer</span>
+        </div>
+      </div>
+
+      <nav class="main-nav">
+        <button class="nav-link nav-home">Home</button>
+        <button class="nav-link nav-company">Company Info</button>
+        <button class="nav-link nav-upload">Upload</button>
+        <button class="nav-link nav-chat nav-current">Chat Bot</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="chat-main">
+    <section class="chat-header">
+      <p class="chat-header-label">Prototype Assistant</p>
+      <h1 class="chat-header-title">Chat with your contact assistant.</h1>
+      <p class="chat-header-description">
+        In the full implementation, this chatbot will be powered by Azure to help you ask questions
+        about your saved contacts, such as <em>"Who works at Megapixel?"</em> or
+        <em>"Show me all Sales Managers in Finance."</em>
+      </p>
+    </section>
+
+    <section class="chat-card">
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-message bot">
+          <div class="chat-bubble">
+            Hi! I’m the prototype assistant for the Megapixel Smart Name Card Organizer.<br />
+            Ask me something like:
+            <ul>
+              <li>"Show me all contacts from Megapixel."</li>
+              <li>"Who are the Sales Managers?"</li>
+              <li>"Do we have anyone from Boston Consulting Group?"</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <form class="chat-input-row" id="chatForm">
+        <input
+          type="text"
+          id="chatInput"
+          placeholder="Type a message here (prototype only – no real backend yet)..."
+          autocomplete="off"
+        />
+        <button type="submit">Send</button>
+      </form>
+      <p class="chat-note">
+        Note: This is a front-end prototype only. In the final version, this chat will connect to an
+        Azure-powered backend that understands your stored contact data.
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-section">
+        <h3>Contact</h3>
+        <a href="https://megapixel.sg/">Official Website</a>
+        <p>Phone: +65 9723 4522</p>
+      </div>
+
+      <div class="footer-section">
+        <h3>Socials</h3>
+        <p>
+          <a href="https://www.facebook.com/megapixel.sg" class="footer-link">Facebook</a> ·
+          <a href="https://www.linkedin.com/company/megapixel-sg" class="footer-link">LinkedIn</a>
+        </p>
+      </div>
+
+      <div class="footer-section footer-note">
+        <p>© 2026 Megapixel Smart Name Card Organizer.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="index.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>
