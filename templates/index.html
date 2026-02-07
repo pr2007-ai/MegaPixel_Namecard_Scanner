@@ -21,10 +21,10 @@
       </div>
 
       <nav class="main-nav">
-        <button class="nav-link nav-home">Home</button>
-        <button class="nav-link nav-company">Company Info</button>
-        <button class="nav-link nav-upload">Upload</button>
-        <button class="nav-link nav-chat">Chat Bot</button>
+        <a class="nav-link nav-home" href="{{ url_for('home') }}">Home</a>
+        <a class="nav-link nav-company" href="{{ url_for('info') }}">Company Info</a>
+        <a class="nav-link nav-upload nav-current" href="{{ url_for('upload') }}">Upload</a>
+        <a class="nav-link nav-chat" href="{{ url_for('chat') }}">Chat Bot</a>
       </nav>
     </div>
   </header>

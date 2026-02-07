@@ -86,7 +86,6 @@ def submit_contact():
                 [Office Name],
                 [Number],
                 [Industry],
-                [Company Logo]
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
@@ -98,7 +97,6 @@ def submit_contact():
             office_name,
             phone_number,
             industry,
-            company_logo
         ))
 
         conn.commit()
