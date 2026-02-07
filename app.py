@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import os
 import pyodbc
@@ -52,6 +52,44 @@ def test_db():
 
     except Exception as e:
         return f"Error: {e}"
+
+
+@app.route("/submit-contact", methods=["POST"])
+def submit_contact():
+    try:
+        data = request.get_json()
+
+        first_name = data.get("firstName")
+        last_name = data.get("lastName")
+        job_title = data.get("jobTitle")
+        office_email = data.get("officeEmail")
+        private_email = data.get("privateEmail")
+        office_name = data.get("officeName")
+        phone_number = data.get("phoneNumber")
+        industry = data.get("industry")
+        company_logo = data.get("companyLogo")
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # IMPORTANT: change table/column names to match your real SQL table
+        cursor.execute("""
+            INSERT INTO Contacts
+            (FirstName, LastName, JobTitle, OfficeEmail, PrivateEmail, OfficeName, PhoneNumber, Industry, CompanyLogo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            first_name, last_name, job_title,
+            office_email, private_email, office_name,
+            phone_number, industry, company_logo
+        ))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({"ok": True, "message": "Saved to database!"})
+
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":

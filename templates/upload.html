@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <title>Megapixel Smart Name Card Organizer - Upload</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="..\static\style.css" />
-  <link rel="icon" href="..\static\images&videos\megapixel_sg_logo.jpg">
+  <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}" />
+  <link rel="icon" href="{{url_for('static', filename='images&videos/megapixel_sg_logo.jpg')}}">
 </head>
 <body>
   <!-- ===== HEADER / BANNER ===== -->
@@ -13,7 +13,7 @@
     <div class="header-inner">
       <div class="logo-area">
         <div class="logo-circle">
-          <img src="..\static\images&videos\megapixel_sg_logo.jpg" alt="Megapixel Logo" />
+          <img src="{{url_for('static', filename='images&videos/megapixel_sg_logo.jpg')}}" alt="Megapixel Logo" />
         </div>
         <div class="logo-text">
           <span class="logo-title">Megapixel Smart Name Card Organizer</span>
@@ -163,7 +163,7 @@
     </div>
   </footer>
 
-  <script src="..\static\index.js"></script>
-  <script src="..\static\upload.js"></script>
+  <script src="{{url_for('static', filename='index.js')}}"></script>
+  <script src="{{url_for('static', filename='upload.js')}}"></script>
 </body>
 </html>

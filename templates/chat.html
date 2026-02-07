@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <title>Megapixel Smart Name Card Organizer - Chat Bot</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="..\static\style.css" />
-  <link rel="icon" href="..\static\images&videos\megapixel_sg_logo.jpg">
+  <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}" />
+  <link rel="icon" href="{{url_for('static', filename='images&videos/megapixel_sg_logo.jpg')}}">
 </head>
 <body>
   <header class="site-header" id="top">
@@ -20,10 +20,10 @@
       </div>
 
       <nav class="main-nav">
-        <button class="nav-link nav-home">Home</button>
-        <button class="nav-link nav-company">Company Info</button>
-        <button class="nav-link nav-upload">Upload</button>
-        <button class="nav-link nav-chat nav-current">Chat Bot</button>
+        <a class="nav-link nav-home" href="{{ url_for('home') }}">Home</a>
+        <a class="nav-link nav-company" href="{{ url_for('info') }}">Company Info</a>
+        <a class="nav-link nav-upload nav-current" href="{{ url_for('upload') }}">Upload</a>
+        <a class="nav-link nav-chat" href="{{ url_for('chat') }}">Chat Bot</a>
       </nav>
     </div>
   </header>
@@ -92,7 +92,7 @@
     </div>
   </footer>
 
-  <script src="..\static\index.js"></script>
-  <script src="..\static\chat.js"></script>
+  <script src="{{url_for('static', filename='index.js')}}"></script>
+  <script src="{{url_for('static', filename='chat.js')}}"></script>
 </body>
 </html>
