@@ -87,7 +87,7 @@ def submit_contact():
                 [Number],
                 [Industry],
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             first_name,
             last_name,
