@@ -815,6 +815,37 @@ a {
   font-size: 0.88rem;
 }
 
+.field-group input,
+.field-group select {
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.45rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.88rem;
+  background-color: #f9fafb;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.field-group select {
+  cursor: pointer;
+}
+
+.field-group input:hover,
+.field-group select:hover {
+  border-color: #9ca3af;
+  background-color: #ffffff;
+}
+
+.field-group input:focus,
+.field-group select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.4);
+  background-color: #ffffff;
+}
+
 .upload-modal-footer {
   padding: 0.85rem 1.4rem 1rem;
   border-top: 1px solid #e5e7eb;
