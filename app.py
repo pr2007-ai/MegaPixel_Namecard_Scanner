@@ -55,24 +55,16 @@ def extract_industry(message: str):
 # ---------------- OLLAMA ----------------
 def ask_ollama(user_msg: str, context: str | None = None) -> str:
     messages = [{"role": "system", "content": SYSTEM_PROMPT_TEXT}]
-
     if context:
-        messages.append({
-            "role": "system",
-            "content": f"Database results (use ONLY these):\n{context}"
-        })
-
+        messages.append({"role": "system", "content": f"Database results:\n{context}"})
     messages.append({"role": "user", "content": user_msg})
 
-    payload = {
-        "model": MODEL_NAME,
-        "messages": messages,
-        "stream": False
-    }
+    payload = {"model": MODEL_NAME, "messages": messages, "stream": False}
 
-    r = requests.post(OLLAMA_URL, json=payload, timeout=60)
+    r = requests.post(OLLAMA_URL, json=payload, timeout=60)  # ✅ THIS LINE
     r.raise_for_status()
     return r.json()["message"]["content"].strip()
+
 
 # ---------------- ROUTES ----------------
 @app.route("/")
