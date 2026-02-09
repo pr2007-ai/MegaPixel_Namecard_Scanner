@@ -11,6 +11,10 @@ print("ENV FILE LOADED")
 print("OLLAMA_URL env =", os.getenv("OLLAMA_URL"))
 print("MODEL_NAME env =", os.getenv("MODEL_NAME"))
 
+conn_str = os.getenv("DB_CONN")
+if not conn_str:
+    raise RuntimeError("DB_CONN missing in .env")
+
 
 app = Flask(__name__)
 
