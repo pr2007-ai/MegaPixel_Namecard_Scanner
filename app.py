@@ -19,8 +19,6 @@ app = Flask(__name__)
 OLLAMA_URL = os.getenv("OLLAMA_URL") or "http://localhost:11434/api/chat"
 MODEL_NAME = os.getenv("MODEL_NAME", "tinyllama:latest")
 
-if not conn_str:
-    raise RuntimeError("DB_CONN is missing. Check your .env file.")
 
 SYSTEM_PROMPT_TEXT = (
     "You are a short, casual, friendly chatbot. "
