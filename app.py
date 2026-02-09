@@ -2,6 +2,19 @@ from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import os
 import pyodbc
+import requests
+import json
+import re 
+import requests 
+
+SYSTEM_PROMPT = (
+    "You are a short, casual, friendly chatbot. "
+    "Keep responses under 2–3 sentences. "
+    "Be friendly and conversational."
+)
+
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
+MODEL_NAME = os.getenv("MODEL_NAME", "tinyllama")
 
 # Load .env
 load_dotenv()
@@ -107,6 +120,91 @@ def submit_contact():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+def ask_ollama(user_msg, history=None):
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_msg}
+    ]
+
+    payload = {
+        "model": "tinyllama",
+        "messages": messages,
+        "stream": False
+    }
+
+    r = requests.post(
+        "http://localhost:11434/api/chat",
+        json=payload,
+        timeout=60
+    )
+
+    r.raise_for_status()
+    return r.json()["message"]["content"]
+
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    try:
+        data = request.get_json() or {}
+        user_msg = (data.get("message") or "").strip()
+
+        if not user_msg:
+            return jsonify({"reply": "Ask me something 🙂"})
+
+        # Step 1: Ask LLM what to do
+        planner_reply = ask_ollama(
+            user_msg,
+            extra_context=DB_TOOL_PROMPT
+        )
+
+        # Step 2: Try to parse JSON
+        try:
+            tool_request = json.loads(planner_reply)
+        except:
+            # Not JSON → normal reply
+            return jsonify({"reply": planner_reply})
+
+        action = tool_request.get("action")
+
+        # Step 3: Execute DB tool
+        if action == "query_companies_by_industry":
+            industry = tool_request["industry"]
+            result = get_companies_by_industry(industry)
+
+            context = "\n".join(result)
+
+        elif action == "query_contacts_by_company":
+            company = tool_request["company"]
+            rows = get_contacts_by_company(company)
+
+            context = "\n".join(
+                f"{r[0]} {r[1]} ({r[2]}) - {r[3]}"
+                for r in rows
+            )
+
+        elif action == "count_by_industry":
+            industry = tool_request["industry"]
+            count = count_by_industry(industry)
+
+            context = f"Total: {count}"
+
+        else:
+            return jsonify({"reply": "I don't know how to do that yet."})
+
+        # Step 4: Ask LLM to answer with DB result
+        final_answer = ask_ollama(
+            "Explain the database results clearly.",
+            extra_context=context
+        )
+
+        return jsonify({"reply": final_answer})
+
+    except Exception as e:
+        return jsonify({"reply": f"Error: {str(e)}"}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
