@@ -394,6 +394,12 @@ def api_chat():
             reply = f"{len(rows)} matches:\n" + "\n".join(lines)
 
             return jsonify({"reply": reply})
+        
+        # Public link
+        if contains_any(t, SYN_FIELD["publiclink"]):
+            if publiclink:
+                return jsonify({"reply": f"{fn} {ln}'s public link is: {publiclink}"})
+            return jsonify({"reply": f"No public link found for {fn} {ln}."})
 
         # 10) Missing fields
         if "missing" in t or "no " in t:
@@ -417,6 +423,12 @@ def api_chat():
             if "industry" in t:
                 rows = db_missing("industry")
                 return jsonify({"reply": f"{len(rows)} contacts missing industry."})
+            
+            if "public link" in t or "publiclink" in t or "link" in t:
+                rows = db_missing("publiclink")
+                return jsonify({"reply": f"{len(rows)} contacts are missing a PublicLink."})
+
+        
 
         # ✅ DB-only fallback (NO OLLAMA to prevent hallucinations)
         return jsonify({
