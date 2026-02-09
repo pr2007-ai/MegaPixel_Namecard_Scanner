@@ -153,10 +153,7 @@ def api_chat():
             return jsonify({"reply": "Ask me something 🙂"})
 
         # Step 1: Ask LLM what to do
-        planner_reply = ask_ollama(
-            user_msg,
-            extra_context=DB_TOOL_PROMPT
-        )
+        planner_reply = ask_ollama(user_msg)
 
         # Step 2: Try to parse JSON
         try:
