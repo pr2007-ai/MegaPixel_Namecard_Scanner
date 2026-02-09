@@ -311,15 +311,102 @@ def api_chat():
                 return jsonify({"reply": f"No phone number found for {first} {last}."})
             return jsonify({"reply": f"{first} {last}'s number is {val}."})
 
+        # 5) Contacts by industry: "people in technology"
+        if any(k in t for k in ["contacts", "people", "names"]) and any(k in t for k in ["in ", "under ", "industry", "category"]):
+            industry = extract_industry(user_msg) or user_msg.split()[-1].title()
+
+            rows = db_contacts_by_industry(industry)
+
+            if not rows:
+                return jsonify({"reply": f"No contacts found in '{industry}'."})
+
+            lines = []
+            for fn, ln, jt, comp, email, ind in rows[:20]:
+                lines.append(f"- {fn} {ln} — {jt or 'No job'} ({comp or 'No company'})")
+
+            reply = f"{len(rows)} contacts in {industry}:\n" + "\n".join(lines)
+
+            if len(rows) > 20:
+                reply += "\n\n(Type 'more' to see more.)"
+
+            return jsonify({"reply": reply})
+
+        # 6) List industries
+        if t in ("industries", "list industries", "show industries"):
+            industries = db_list_industries()
+            reply = "Industries:\n" + "\n".join(f"- {x}" for x in industries[:30])
+            return jsonify({"reply": reply})
+
+        # 7) List companies
+        if t in ("companies", "list companies", "show companies"):
+            comps = db_list_companies()
+            reply = "Companies:\n" + "\n".join(f"- {x}" for x in comps[:30])
+            return jsonify({"reply": reply})
+
+        # 8) List job titles
+        if t in ("job titles", "list job titles", "show job titles"):
+            titles = db_list_job_titles()
+            reply = "Job Titles:\n" + "\n".join(f"- {x}" for x in titles[:30])
+            return jsonify({"reply": reply})
+
+        # 9) Search by name: "find rachel"
+        if t.startswith("find ") or t.startswith("search "):
+            term = t.replace("find", "").replace("search", "").strip()
+
+            if not term:
+                return jsonify({"reply": "Search who? Example: 'find rachel'."})
+
+            rows = db_search_name(term)
+
+            if not rows:
+                return jsonify({"reply": f"No contacts found for '{term}'."})
+
+            lines = []
+            for fn, ln, jt, comp, email, ind in rows[:20]:
+                lines.append(f"- {fn} {ln} — {jt or 'No job'} ({comp or 'No company'})")
+
+            reply = f"{len(rows)} matches:\n" + "\n".join(lines)
+
+            return jsonify({"reply": reply})
+
+        # 10) Missing fields
+        if "missing" in t or "no " in t:
+
+            if "email" in t:
+                rows = db_missing("email")
+                return jsonify({"reply": f"{len(rows)} contacts missing email."})
+
+            if "phone" in t or "number" in t:
+                rows = db_missing("phone")
+                return jsonify({"reply": f"{len(rows)} contacts missing phone."})
+
+            if "job" in t or "title" in t:
+                rows = db_missing("job")
+                return jsonify({"reply": f"{len(rows)} contacts missing job title."})
+
+            if "company" in t:
+                rows = db_missing("company")
+                return jsonify({"reply": f"{len(rows)} contacts missing company."})
+
+            if "industry" in t:
+                rows = db_missing("industry")
+                return jsonify({"reply": f"{len(rows)} contacts missing industry."})
+
         # ✅ DB-only fallback (NO OLLAMA to prevent hallucinations)
         return jsonify({
             "reply": (
-                "I can only answer using your database. Try:\n"
+                "I can answer using your database. Try:\n"
                 "- companies in Technology\n"
+                "- contacts in Technology\n"
                 "- show contacts from Megapixel\n"
-                "- who are the Sales Managers\n"
+                "- who are the managers\n"
                 "- industry of Rachel Sim\n"
-                "- email of Rachel Sim"
+                "- email of Rachel Sim\n"
+                "- list industries\n"
+                "- list companies\n"
+                "- list job titles\n"
+                "- find rachel\n"
+                "- missing email"
             )
         })
 
