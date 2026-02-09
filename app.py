@@ -6,24 +6,22 @@ import requests
 import json
 import re 
 
-SYSTEM_PROMPT = ("""
-You convert user questions into safe SQL Server SELECT queries.
+SYSTEM_PROMPT = (
+    "You are a short, casual, friendly chatbot. "
+    "Keep responses under 2–3 sentences. "
+    "Be friendly and conversational."
+)
+
+SQL_PROMPT = """
+You are an assistant that answers ONLY using database results.
 
 Rules:
-- Output ONLY JSON.
-- Only SELECT allowed.
-- Always use dbo.BusinessCards.
-- Always limit with TOP 50.
-- Use column names in [brackets].
+- Use ONLY the data provided.
+- Do NOT invent companies or people.
+- If no data is found, say: "No records found."
+- Keep answers short and factual.
+"""
 
-Columns:
-[First Name], [Last Name], [Job Title],
-[Office Email], [Private Email],
-[Office Name], [Number], [Industry]
-
-Format:
-{"sql":"SELECT ..."}
-""")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
 MODEL_NAME = os.getenv("MODEL_NAME", "tinyllama")
