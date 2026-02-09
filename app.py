@@ -127,137 +127,6 @@ def db_person_field(first: str, last: str, column_sql: str):
     conn.close()
     return row[0] if row else None
 
-# ---------------- Pagination memory (simple) ----------------
-LAST = {
-    "items": [],
-    "offset": 0,
-    "page_size": 20,
-    "label": ""
-}
-
-def set_last(items, label=""):
-    LAST["items"] = items
-    LAST["offset"] = 0
-    LAST["label"] = label
-
-def get_more():
-    items = LAST["items"]
-    if not items:
-        return "Nothing to show more of yet. Ask something like 'companies in technology'."
-
-    start = LAST["offset"]
-    end = start + LAST["page_size"]
-    chunk = items[start:end]
-    LAST["offset"] = end
-
-    msg = "\n".join(chunk)
-    if end < len(items):
-        msg += "\n\n(Type 'more' to see more.)"
-    else:
-        msg += "\n\n(That’s all.)"
-    return msg
-
-def is_more(text: str) -> bool:
-    return norm(text) in ("more", "next", "show more", "more please")
-
-# ---------------- More DB functions ----------------
-def db_contacts_by_industry(industry: str, limit: int = 200):
-    sql = """
-        SELECT TOP (?)
-            [First Name], [Last Name], [Job Title], [Office Name], [Office Email], [Industry]
-        FROM dbo.BusinessCards
-        WHERE [Industry] IS NOT NULL
-          AND LTRIM(RTRIM([Industry])) <> ''
-          AND LOWER(LTRIM(RTRIM([Industry]))) = LOWER(?)
-        ORDER BY [Office Name], [Last Name], [First Name];
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-    rows = cur.execute(sql, limit, industry).fetchall()
-    conn.close()
-    return rows
-
-def db_list_industries(limit: int = 500):
-    sql = """
-        SELECT DISTINCT TOP (?)
-            LTRIM(RTRIM([Industry])) AS Industry
-        FROM dbo.BusinessCards
-        WHERE [Industry] IS NOT NULL AND LTRIM(RTRIM([Industry])) <> ''
-        ORDER BY Industry;
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-    rows = cur.execute(sql, limit).fetchall()
-    conn.close()
-    return [r[0] for r in rows]
-
-def db_list_companies(limit: int = 500):
-    sql = """
-        SELECT DISTINCT TOP (?)
-            LTRIM(RTRIM([Office Name])) AS Company
-        FROM dbo.BusinessCards
-        WHERE [Office Name] IS NOT NULL AND LTRIM(RTRIM([Office Name])) <> ''
-        ORDER BY Company;
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-    rows = cur.execute(sql, limit).fetchall()
-    conn.close()
-    return [r[0] for r in rows]
-
-def db_list_job_titles(limit: int = 500):
-    sql = """
-        SELECT DISTINCT TOP (?)
-            LTRIM(RTRIM([Job Title])) AS JobTitle
-        FROM dbo.BusinessCards
-        WHERE [Job Title] IS NOT NULL AND LTRIM(RTRIM([Job Title])) <> ''
-        ORDER BY JobTitle;
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-    rows = cur.execute(sql, limit).fetchall()
-    conn.close()
-    return [r[0] for r in rows]
-
-def db_search_name(term: str, limit: int = 50):
-    sql = """
-        SELECT TOP (?)
-            [First Name], [Last Name], [Job Title], [Office Name], [Office Email], [Industry]
-        FROM dbo.BusinessCards
-        WHERE LOWER([First Name]) LIKE LOWER(?)
-           OR LOWER([Last Name]) LIKE LOWER(?)
-        ORDER BY [Last Name], [First Name];
-    """
-    like = f"%{term}%"
-    conn = get_db_connection()
-    cur = conn.cursor()
-    rows = cur.execute(sql, limit, like, like).fetchall()
-    conn.close()
-    return rows
-
-def db_missing(field: str, limit: int = 50):
-    mapping = {
-        "email": "[Office Email]",
-        "phone": "[Number]",
-        "job": "[Job Title]",
-        "company": "[Office Name]",
-        "industry": "[Industry]"
-    }
-    col = mapping[field]
-
-    sql = f"""
-        SELECT TOP (?)
-            [First Name], [Last Name], [Job Title], [Office Name], [Office Email], [Industry]
-        FROM dbo.BusinessCards
-        WHERE {col} IS NULL OR LTRIM(RTRIM({col})) = ''
-        ORDER BY [Last Name], [First Name];
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-    rows = cur.execute(sql, limit).fetchall()
-    conn.close()
-    return rows
-
 # ---------------- OLLAMA ----------------
 def ask_ollama(user_msg: str, context: str | None = None) -> str:
     messages = [{"role": "system", "content": SYSTEM_PROMPT_TEXT}]
@@ -270,7 +139,6 @@ def ask_ollama(user_msg: str, context: str | None = None) -> str:
     r = requests.post(OLLAMA_URL, json=payload, timeout=60)  # ✅ THIS LINE
     r.raise_for_status()
     return r.json()["message"]["content"].strip()
-
 
 
 # ---------------- ROUTES ----------------
@@ -356,126 +224,102 @@ def api_chat():
 
         t = norm(user_msg)
 
-        # 0) "more" pagination
-        if is_more(user_msg):
-            return jsonify({"reply": get_more()})
-
-        # A) list industries
-        if t in ("industries", "list industries", "show industries"):
-            industries = db_list_industries()
-            lines = [f"- {x}" for x in industries]
-            set_last(lines, "industries")
-            reply = f"{len(lines)} industries:\n" + "\n".join(lines[:20])
-            if len(lines) > 20:
-                reply += "\n\n(Type 'more' to see more.)"
-            return jsonify({"reply": reply})
-
-        # B) list companies
-        if t in ("companies", "list companies", "show companies"):
-            comps = db_list_companies()
-            lines = [f"- {x}" for x in comps]
-            set_last(lines, "companies")
-            reply = f"{len(lines)} companies:\n" + "\n".join(lines[:20])
-            if len(lines) > 20:
-                reply += "\n\n(Type 'more' to see more.)"
-            return jsonify({"reply": reply})
-
-        # C) list job titles
-        if t in ("job titles", "list job titles", "show job titles"):
-            titles = db_list_job_titles()
-            lines = [f"- {x}" for x in titles]
-            set_last(lines, "job titles")
-            reply = f"{len(lines)} job titles:\n" + "\n".join(lines[:20])
-            if len(lines) > 20:
-                reply += "\n\n(Type 'more' to see more.)"
-            return jsonify({"reply": reply})
-
-        # D) contacts/names/people in industry: "names under retail", "people in technology"
-        if any(k in t for k in ["contacts", "names", "people"]) and any(k in t for k in ["under", " in ", "industry", "category"]):
+        # 1) Companies by industry
+        if any(w in t for w in ["company", "companies"]) and any(w in t for w in ["industry", "under", " in ", "category"]):
             industry = extract_industry(user_msg) or user_msg.split()[-1].title()
-            rows = db_contacts_by_industry(industry)
-            if not rows:
-                return jsonify({"reply": f"No contacts found under '{industry}'."})
+            companies = get_companies_by_industry(industry)
 
-            lines = []
-            for fn, ln, jt, comp, email, ind in rows:
-                lines.append(f"- {fn} {ln} — {jt or 'No job title'} ({comp or 'No company'})")
+            if not companies:
+                return jsonify({"reply": f"No companies found under '{industry}'."})
 
-            set_last(lines, f"contacts in {industry}")
-            reply = f"{len(lines)} contacts in {industry}:\n" + "\n".join(lines[:20])
-            if len(lines) > 20:
-                reply += "\n\n(Type 'more' to see more.)"
+            shown = companies[:20]
+            reply = f"{len(companies)} companies in {industry}:\n" + "\n".join(f"- {c}" for c in shown)
+            if len(companies) > 20:
+                reply += "\n\n(Showing first 20. Ask: 'show more companies in {industry}')"
             return jsonify({"reply": reply})
 
-        # E) search by name: "find rachel", "search rachel"
-        if t.startswith("find ") or t.startswith("search "):
-            term = t.replace("find", "").replace("search", "").strip()
-            if not term:
-                return jsonify({"reply": "Search who? Example: 'find rachel'."})
+        # 2) Contacts from a company: "show contacts from Megapixel"
+        if "contact" in t and ("from" in t or "at" in t):
+            m = re.search(r"(?:from|at)\s+(.+)$", t)
+            company = (m.group(1).strip() if m else "").title()
 
-            rows = db_search_name(term)
+            if not company:
+                return jsonify({"reply": "Which company? Example: 'show contacts from Megapixel'."})
+
+            rows = db_contacts_by_company(company)
             if not rows:
-                return jsonify({"reply": f"No contacts found matching '{term}'."})
+                return jsonify({"reply": f"No contacts found for '{company}'."})
 
             lines = []
-            for fn, ln, jt, comp, email, ind in rows:
-                lines.append(f"- {fn} {ln} — {jt or 'No job title'} ({comp or 'No company'})")
+            for fn, ln, jt, email, ind in rows[:20]:
+                lines.append(f"- {fn} {ln} — {jt or 'No job title'} ({email or 'No email'})")
 
-            set_last(lines, f"search {term}")
-            reply = f"{len(lines)} matches for '{term}':\n" + "\n".join(lines[:20])
-            if len(lines) > 20:
-                reply += "\n\n(Type 'more' to see more.)"
+            reply = f"Contacts from {company}:\n" + "\n".join(lines)
+            if len(rows) > 20:
+                reply += "\n\n(Showing first 20.)"
             return jsonify({"reply": reply})
 
-        # F) missing fields: "missing email", "no phone", "missing job title"
-        if "missing" in t or "no " in t:
-            if "email" in t:
-                rows = db_missing("email")
-                lines = [f"- {fn} {ln} ({comp or 'No company'})" for fn, ln, jt, comp, email, ind in rows]
-                set_last(lines, "missing email")
-                return jsonify({"reply": f"{len(lines)} contacts missing email:\n" + "\n".join(lines[:20]) + ("\n\n(Type 'more' to see more.)" if len(lines) > 20 else "")})
+        # 3) Managers: "who are the Sales Managers" OR "job titles that have manager"
+        if "manager" in t:
+            keyword = "sales manager" if "sales" in t else "manager"
+            rows = db_people_with_job_keyword(keyword)
 
-            if "phone" in t or "number" in t:
-                rows = db_missing("phone")
-                lines = [f"- {fn} {ln} ({comp or 'No company'})" for fn, ln, jt, comp, email, ind in rows]
-                set_last(lines, "missing phone")
-                return jsonify({"reply": f"{len(lines)} contacts missing phone:\n" + "\n".join(lines[:20]) + ("\n\n(Type 'more' to see more.)" if len(lines) > 20 else "")})
+            if not rows:
+                return jsonify({"reply": f"No contacts found with job title containing '{keyword}'."})
 
-            if "job" in t or "title" in t:
-                rows = db_missing("job")
-                lines = [f"- {fn} {ln} ({comp or 'No company'})" for fn, ln, jt, comp, email, ind in rows]
-                set_last(lines, "missing job title")
-                return jsonify({"reply": f"{len(lines)} contacts missing job title:\n" + "\n".join(lines[:20]) + ("\n\n(Type 'more' to see more.)" if len(lines) > 20 else "")})
+            lines = [f"- {fn} {ln} — {jt} ({comp})" for fn, ln, jt, comp in rows[:20]]
+            return jsonify({"reply": "Found:\n" + "\n".join(lines)})
 
-            if "company" in t:
-                rows = db_missing("company")
-                lines = [f"- {fn} {ln} ({jt or 'No job title'})" for fn, ln, jt, comp, email, ind in rows]
-                set_last(lines, "missing company")
-                return jsonify({"reply": f"{len(lines)} contacts missing company:\n" + "\n".join(lines[:20]) + ("\n\n(Type 'more' to see more.)" if len(lines) > 20 else "")})
+        # 4) Person lookups: industry/email/job title/number of a person
+        if "industry" in t and ("industry of" in t or "industry for" in t or "what is" in t):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'industry of Rachel Sim'."})
 
-            if "industry" in t:
-                rows = db_missing("industry")
-                lines = [f"- {fn} {ln} ({comp or 'No company'})" for fn, ln, jt, comp, email, ind in rows]
-                set_last(lines, "missing industry")
-                return jsonify({"reply": f"{len(lines)} contacts missing industry:\n" + "\n".join(lines[:20]) + ("\n\n(Type 'more' to see more.)" if len(lines) > 20 else "")})
+            val = db_person_field(first, last, "[Industry]")
+            if not val:
+                return jsonify({"reply": f"No industry found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last} is in {val}."})
 
+        if "email" in t and ("email of" in t or "email for" in t):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'email of Rachel Sim'."})
+
+            val = db_person_field(first, last, "[Office Email]") or db_person_field(first, last, "[Private Email]")
+            if not val:
+                return jsonify({"reply": f"No email found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last}'s email is {val}."})
+
+        if any(k in t for k in ["job title", "role", "position"]) and ("of" in t or "for" in t):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'job title of Rachel Sim'."})
+
+            val = db_person_field(first, last, "[Job Title]")
+            if not val:
+                return jsonify({"reply": f"No job title found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last}'s job title is {val}."})
+
+        if any(k in t for k in ["phone", "number", "contact"]) and ("of" in t or "for" in t):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'number of Rachel Sim'."})
+
+            val = db_person_field(first, last, "[Number]")
+            if not val:
+                return jsonify({"reply": f"No phone number found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last}'s number is {val}."})
 
         # ✅ DB-only fallback (NO OLLAMA to prevent hallucinations)
         return jsonify({
             "reply": (
                 "I can only answer using your database. Try:\n"
                 "- companies in Technology\n"
-                "- contacts in Technology\n"
                 "- show contacts from Megapixel\n"
                 "- who are the Sales Managers\n"
                 "- industry of Rachel Sim\n"
-                "- email of Rachel Sim\n"
-                "- list industries\n"
-                "- list companies\n"
-                "- list job titles\n"
-                "- find rachel\n"
-                "- missing email\n"
-                "- more"
+                "- email of Rachel Sim"
             )
         })
 
