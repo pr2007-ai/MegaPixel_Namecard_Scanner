@@ -281,15 +281,36 @@ def api_chat():
                 return jsonify({"reply": f"No industry found for {first} {last}."})
             return jsonify({"reply": f"{first} {last} is in {val}."})
 
-        if "email" in t and ("email of" in t or "email for" in t):
+        if "email" in t:
             first, last = split_name(user_msg)
             if not first or not last:
-                return jsonify({"reply": "Who’s the person? Example: 'email of Rachel Sim'."})
+                return jsonify({"reply": "Who’s the person? Example: 'Rachel Sim email'."})
 
-            val = db_person_field(first, last, "[Office Email]") or db_person_field(first, last, "[Private Email]")
-            if not val:
-                return jsonify({"reply": f"No email found for {first} {last}."})
-            return jsonify({"reply": f"{first} {last}'s email is {val}."})
+            wants_office = "office" in t or "work" in t
+            wants_private = "private" in t or "personal" in t
+
+            office_email = db_person_field(first, last, "[Office Email]")
+            private_email = db_person_field(first, last, "[Private Email]")
+
+            if wants_office:
+                if not office_email:
+                    return jsonify({"reply": f"No office email found for {first} {last}."})
+                return jsonify({"reply": f"{first} {last}'s office email is {office_email}."})
+
+            if wants_private:
+                if not private_email:
+                    return jsonify({"reply": f"No private email found for {first} {last}."})
+                return jsonify({"reply": f"{first} {last}'s private email is {private_email}."})
+
+            # default: return both if available
+            if office_email and private_email:
+                return jsonify({"reply": f"Office: {office_email}\nPrivate: {private_email}"})
+            if office_email:
+                return jsonify({"reply": f"{first} {last}'s office email is {office_email}."})
+            if private_email:
+                return jsonify({"reply": f"{first} {last}'s private email is {private_email}."})
+
+            return jsonify({"reply": f"No email found for {first} {last}."})
 
         if any(k in t for k in ["job title", "role", "position"]) and ("of" in t or "for" in t):
             first, last = split_name(user_msg)
@@ -343,11 +364,16 @@ def api_chat():
             reply = "Companies:\n" + "\n".join(f"- {x}" for x in comps[:30])
             return jsonify({"reply": reply})
 
-        # 8) List job titles
-        if t in ("job titles", "list job titles", "show job titles"):
-            titles = db_list_job_titles()
-            reply = "Job Titles:\n" + "\n".join(f"- {x}" for x in titles[:30])
-            return jsonify({"reply": reply})
+        # 8) Job title / role / position of a person 
+        if any(k in t for k in ["job title", "role", "position"]):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'Rachel Sim job title'."})
+
+            val = db_person_field(first, last, "[Job Title]")
+            if not val:
+                return jsonify({"reply": f"No job title found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last}'s job title is {val}."})
 
         # 9) Search by name: "find rachel"
         if t.startswith("find ") or t.startswith("search "):
