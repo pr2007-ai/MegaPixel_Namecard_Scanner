@@ -173,7 +173,7 @@ def api_chat():
 
         # fallback: normal chat (no DB)
         reply = ask_ollama(user_msg)
-        return jsonify({"reply": reply})
+        return jsonify({"reply": "I can only answer using the database. Please ask about stored contacts or companies."})
 
     except Exception as e:
         # always return JSON so your frontend won't crash
