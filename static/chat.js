@@ -9,15 +9,28 @@ function appendMessage(text, sender = "user") {
 
   const bubble = document.createElement("div");
   bubble.classList.add("chat-bubble");
-  bubble.innerHTML = text;
+  bubble.textContent = text; // safer than innerHTML
+  // If you need HTML formatting, change back to innerHTML carefully.
 
   wrapper.appendChild(bubble);
   chatMessages.appendChild(wrapper);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+async function sendToBackend(message) {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message })
+  });
+
+  // if Flask returns an error code, still try to read JSON
+  const data = await res.json();
+  return data.reply || "No reply returned.";
+}
+
 if (chatForm && chatInput) {
-  chatForm.addEventListener("submit", (e) => {
+  chatForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const value = chatInput.value.trim();
     if (!value) return;
@@ -25,11 +38,29 @@ if (chatForm && chatInput) {
     appendMessage(value, "user");
     chatInput.value = "";
 
-    setTimeout(() => {
-      appendMessage(
-        "This is a prototype response. In the final system, I will query your stored contacts via Azure and return real results based on your question.",
-        "bot"
-      );
-    }, 500);
+    // Optional "typing..." message
+    const typingId = "typing-" + Date.now();
+    appendMessage("Typing...", "bot");
+
+    try {
+      const reply = await sendToBackend(value);
+
+      // Remove last "Typing..." bubble
+      const last = chatMessages.lastElementChild;
+      if (last && last.querySelector(".chat-bubble")?.textContent === "Typing...") {
+        chatMessages.removeChild(last);
+      }
+
+      appendMessage(reply, "bot");
+    } catch (err) {
+      // Remove typing bubble if it exists
+      const last = chatMessages.lastElementChild;
+      if (last && last.querySelector(".chat-bubble")?.textContent === "Typing...") {
+        chatMessages.removeChild(last);
+      }
+
+      appendMessage("Error: I couldn't reach the server. Is Flask running?", "bot");
+      console.error(err);
+    }
   });
 }
