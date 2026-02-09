@@ -58,6 +58,75 @@ def extract_industry(message: str):
         return m.group(1).strip().title()
     return None
 
+def norm(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip().lower())
+
+def split_name(text: str):
+    """
+    Extract name from:
+    - 'industry of rachel sim'
+    - 'email of rachel sim'
+    - 'job title of rachel sim'
+    Returns (first, last) or (None, None)
+    """
+    t = norm(text)
+
+    m = re.search(r"(?:of|for)\s+([a-z]+)\s+([a-z]+)$", t)
+    if m:
+        return m.group(1).title(), m.group(2).title()
+
+    parts = re.findall(r"[a-z]+", t)
+    if len(parts) >= 2:
+        return parts[-2].title(), parts[-1].title()
+
+    return None, None
+
+
+def db_contacts_by_company(company: str, limit: int = 50):
+    sql = """
+        SELECT TOP (?)
+            [First Name], [Last Name], [Job Title], [Office Email], [Industry]
+        FROM dbo.BusinessCards
+        WHERE LOWER(LTRIM(RTRIM([Office Name]))) = LOWER(?)
+        ORDER BY [Last Name], [First Name];
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    rows = cur.execute(sql, limit, company).fetchall()
+    conn.close()
+    return rows
+
+
+def db_people_with_job_keyword(keyword: str, limit: int = 50):
+    sql = """
+        SELECT TOP (?)
+            [First Name], [Last Name], [Job Title], [Office Name]
+        FROM dbo.BusinessCards
+        WHERE [Job Title] IS NOT NULL
+          AND LOWER([Job Title]) LIKE ?
+        ORDER BY [Last Name], [First Name];
+    """
+    like = f"%{keyword.lower()}%"
+    conn = get_db_connection()
+    cur = conn.cursor()
+    rows = cur.execute(sql, limit, like).fetchall()
+    conn.close()
+    return rows
+
+
+def db_person_field(first: str, last: str, column_sql: str):
+    # column_sql is hardcoded by us (safe), not user input
+    sql = f"""
+        SELECT TOP 1 {column_sql}
+        FROM dbo.BusinessCards
+        WHERE LOWER([First Name]) = LOWER(?) AND LOWER([Last Name]) = LOWER(?);
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    row = cur.execute(sql, first, last).fetchone()
+    conn.close()
+    return row[0] if row else None
+
 # ---------------- OLLAMA ----------------
 def ask_ollama(user_msg: str, context: str | None = None) -> str:
     messages = [{"role": "system", "content": SYSTEM_PROMPT_TEXT}]
@@ -153,12 +222,11 @@ def api_chat():
         if not user_msg:
             return jsonify({"reply": "Ask me something 🙂"})
 
-        lower = user_msg.lower()
+        t = norm(user_msg)
 
-        # ✅ DB-only: companies by industry
-        if ("company" in lower or "companies" in lower) and any(w in lower for w in ["industry", "under", " in "]):
+        # 1) Companies by industry
+        if any(w in t for w in ["company", "companies"]) and any(w in t for w in ["industry", "under", " in ", "category"]):
             industry = extract_industry(user_msg) or user_msg.split()[-1].title()
-
             companies = get_companies_by_industry(industry)
 
             if not companies:
@@ -167,17 +235,95 @@ def api_chat():
             shown = companies[:20]
             reply = f"{len(companies)} companies in {industry}:\n" + "\n".join(f"- {c}" for c in shown)
             if len(companies) > 20:
-                reply += "\n\n(Type 'more' to see the rest.)"
-
+                reply += "\n\n(Showing first 20. Ask: 'show more companies in {industry}')"
             return jsonify({"reply": reply})
 
-        # fallback: normal chat (no DB)
-        reply = ask_ollama(user_msg)
-        return jsonify({"reply": "I can only answer using the database. Please ask about stored contacts or companies."})
+        # 2) Contacts from a company: "show contacts from Megapixel"
+        if "contact" in t and ("from" in t or "at" in t):
+            m = re.search(r"(?:from|at)\s+(.+)$", t)
+            company = (m.group(1).strip() if m else "").title()
+
+            if not company:
+                return jsonify({"reply": "Which company? Example: 'show contacts from Megapixel'."})
+
+            rows = db_contacts_by_company(company)
+            if not rows:
+                return jsonify({"reply": f"No contacts found for '{company}'."})
+
+            lines = []
+            for fn, ln, jt, email, ind in rows[:20]:
+                lines.append(f"- {fn} {ln} — {jt or 'No job title'} ({email or 'No email'})")
+
+            reply = f"Contacts from {company}:\n" + "\n".join(lines)
+            if len(rows) > 20:
+                reply += "\n\n(Showing first 20.)"
+            return jsonify({"reply": reply})
+
+        # 3) Managers: "who are the Sales Managers" OR "job titles that have manager"
+        if "manager" in t:
+            keyword = "sales manager" if "sales" in t else "manager"
+            rows = db_people_with_job_keyword(keyword)
+
+            if not rows:
+                return jsonify({"reply": f"No contacts found with job title containing '{keyword}'."})
+
+            lines = [f"- {fn} {ln} — {jt} ({comp})" for fn, ln, jt, comp in rows[:20]]
+            return jsonify({"reply": "Found:\n" + "\n".join(lines)})
+
+        # 4) Person lookups: industry/email/job title/number of a person
+        if "industry" in t and ("industry of" in t or "industry for" in t or "what is" in t):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'industry of Rachel Sim'."})
+
+            val = db_person_field(first, last, "[Industry]")
+            if not val:
+                return jsonify({"reply": f"No industry found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last} is in {val}."})
+
+        if "email" in t and ("email of" in t or "email for" in t):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'email of Rachel Sim'."})
+
+            val = db_person_field(first, last, "[Office Email]") or db_person_field(first, last, "[Private Email]")
+            if not val:
+                return jsonify({"reply": f"No email found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last}'s email is {val}."})
+
+        if any(k in t for k in ["job title", "role", "position"]) and ("of" in t or "for" in t):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'job title of Rachel Sim'."})
+
+            val = db_person_field(first, last, "[Job Title]")
+            if not val:
+                return jsonify({"reply": f"No job title found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last}'s job title is {val}."})
+
+        if any(k in t for k in ["phone", "number", "contact"]) and ("of" in t or "for" in t):
+            first, last = split_name(user_msg)
+            if not first or not last:
+                return jsonify({"reply": "Who’s the person? Example: 'number of Rachel Sim'."})
+
+            val = db_person_field(first, last, "[Number]")
+            if not val:
+                return jsonify({"reply": f"No phone number found for {first} {last}."})
+            return jsonify({"reply": f"{first} {last}'s number is {val}."})
+
+        # ✅ DB-only fallback (NO OLLAMA to prevent hallucinations)
+        return jsonify({
+            "reply": (
+                "I can only answer using your database. Try:\n"
+                "- companies in Technology\n"
+                "- show contacts from Megapixel\n"
+                "- who are the Sales Managers\n"
+                "- industry of Rachel Sim\n"
+                "- email of Rachel Sim"
+            )
+        })
 
     except Exception as e:
-        # always return JSON so your frontend won't crash
         return jsonify({"reply": f"Server error: {str(e)}"}), 500
-
 if __name__ == "__main__":
     app.run(debug=True)
