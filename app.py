@@ -7,13 +7,17 @@ import re
 
 # ✅ Load .env FIRST (before any os.getenv calls)
 load_dotenv()
+print("ENV FILE LOADED")
+print("OLLAMA_URL env =", os.getenv("OLLAMA_URL"))
+print("MODEL_NAME env =", os.getenv("MODEL_NAME"))
+
 
 app = Flask(__name__)
 
 # ---------------- CONFIG ----------------
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
-MODEL_NAME = os.getenv("MODEL_NAME", "tinyllama")
-conn_str = os.getenv("DB_CONN")
+
+OLLAMA_URL = os.getenv("OLLAMA_URL") or "http://localhost:11434/api/chat"
+MODEL_NAME = os.getenv("MODEL_NAME", "tinyllama:latest")
 
 if not conn_str:
     raise RuntimeError("DB_CONN is missing. Check your .env file.")
