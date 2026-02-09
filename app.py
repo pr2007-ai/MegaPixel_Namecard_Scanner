@@ -5,7 +5,6 @@ import pyodbc
 import requests
 import json
 import re 
-import requests 
 
 SYSTEM_PROMPT = (
     "You are a short, casual, friendly chatbot. "
@@ -143,8 +142,39 @@ def ask_ollama(user_msg, history=None):
     return r.json()["message"]["content"]
 
 
+def get_companies_by_industry(industry: str, limit: int = 200):
+    sql = """
+        SELECT DISTINCT TOP (?)
+            [Office Name]
+        FROM dbo.BusinessCards
+        WHERE LOWER(LTRIM(RTRIM([Industry]))) = LOWER(?)
+          AND [Office Name] IS NOT NULL
+          AND LTRIM(RTRIM([Office Name])) <> ''
+        ORDER BY [Office Name];
+    """
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    rows = cur.execute(sql, limit, industry).fetchall()
+    conn.close()
+
+    return [r[0] for r in rows]
+
+
+def extract_industry(message: str):
+    m = re.search(
+        r"(?:under|in|for|category)\s+([a-zA-Z &/-]+)",
+        message.lower()
+    )
+
+    if m:
+        return m.group(1).strip().title()
+
+    return None
+
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
+
     try:
         data = request.get_json() or {}
         user_msg = (data.get("message") or "").strip()
@@ -152,50 +182,42 @@ def api_chat():
         if not user_msg:
             return jsonify({"reply": "Ask me something 🙂"})
 
-        # Step 1: Ask LLM what to do
-        planner_reply = ask_ollama(user_msg)
+        lower = user_msg.lower()
 
-        # Step 2: Try to parse JSON
-        try:
-            tool_request = json.loads(planner_reply)
-        except:
-            # Not JSON → normal reply
-            return jsonify({"reply": planner_reply})
+        # ✅ DB-only: companies by industry
+        if ("company" in lower or "companies" in lower) and (
+            "industry" in lower or "under" in lower or " in " in lower
+        ):
 
-        action = tool_request.get("action")
+            industry = extract_industry(user_msg)
 
-        # Step 3: Execute DB tool
-        if action == "query_companies_by_industry":
-            industry = tool_request["industry"]
-            result = get_companies_by_industry(industry)
+            # Fallback: last word
+            if not industry:
+                industry = user_msg.split()[-1].title()
 
-            context = "\n".join(result)
+            companies = get_companies_by_industry(industry)
 
-        elif action == "query_contacts_by_company":
-            company = tool_request["company"]
-            rows = get_contacts_by_company(company)
+            if not companies:
+                return jsonify({
+                    "reply": f"No companies found under '{industry}'."
+                })
 
-            context = "\n".join(
-                f"{r[0]} {r[1]} ({r[2]}) - {r[3]}"
-                for r in rows
+            # Show first 20 only
+            shown = companies[:20]
+
+            reply = (
+                f"{len(companies)} companies in {industry}:\n" +
+                "\n".join(f"- {c}" for c in shown)
             )
 
-        elif action == "count_by_industry":
-            industry = tool_request["industry"]
-            count = count_by_industry(industry)
+            if len(companies) > 20:
+                reply += "\n\nType 'more' to see the rest."
 
-            context = f"Total: {count}"
+            return jsonify({"reply": reply})
 
-        else:
-            return jsonify({"reply": "I don't know how to do that yet."})
-
-        # Step 4: Ask LLM to answer with DB result
-        final_answer = ask_ollama(
-            "Explain the database results clearly.",
-            extra_context=context
-        )
-
-        return jsonify({"reply": final_answer})
+        # ✅ Normal chat (no DB)
+        reply = ask_ollama(user_msg)
+        return jsonify({"reply": reply})
 
     except Exception as e:
         return jsonify({"reply": f"Error: {str(e)}"}), 500
