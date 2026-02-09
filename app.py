@@ -6,21 +6,27 @@ import requests
 import json
 import re 
 
-SYSTEM_PROMPT = {
-    "role": "system",
-    "content": (
-        "You are a short, casual, friendly chatbot. "
-        "Read the user's input, infer intent, and respond naturally. "
-        "Keep responses under 2–3 sentences unless asked for more detail. "
-        "If the user expresses distress, respond with empathy first. "
-        "Do NOT write biographies, long posts, tutorials, code examples, or instructions. "
-        "Always be friendly, concise, and conversational. "
-        "Never start responses with 'Dear', 'Certainly', 'I hope this', 'As a chatbot', or 'Here is an example'."
-    )
-}
+# Load .env FIRST
+load_dotenv()
 
+# System prompt must be a STRING (not dict)
+SYSTEM_PROMPT = (
+    "You are a short, casual, friendly chatbot. "
+    "Read the user's input, infer intent, and respond naturally. "
+    "Keep responses under 2–3 sentences unless asked for more detail. "
+    "If the user expresses distress, respond with empathy first. "
+    "Do NOT write biographies, long posts, tutorials, code examples, or instructions. "
+    "Always be friendly, concise, and conversational. "
+    "Never start responses with 'Dear', 'Certainly', 'I hope this', 'As a chatbot', or 'Here is an example'."
+)
+
+# Environment variables
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
 MODEL_NAME = os.getenv("MODEL_NAME", "tinyllama")
+
+# Database connection string
+conn_str = os.getenv("DB_CONN")
+
 
 # Load .env
 load_dotenv()
@@ -32,7 +38,10 @@ conn_str = os.getenv("DB_CONN")
 
 
 def get_db_connection():
+    if not conn_str:
+        raise RuntimeError("DB_CONN is not set in .env file")
     return pyodbc.connect(conn_str)
+
 
 
 @app.route("/")
@@ -134,13 +143,13 @@ def ask_ollama(user_msg, history=None):
     ]
 
     payload = {
-        "model": "tinyllama",
+        "model": MODEL_NAME,
         "messages": messages,
         "stream": False
     }
 
     r = requests.post(
-        "http://localhost:11434/api/chat",
+        OLLAMA_URL,
         json=payload,
         timeout=60
     )
@@ -234,9 +243,9 @@ def api_chat():
         return jsonify({"reply": reply})
 
     except Exception as e:
-        return jsonify({"reply": f"Error: {str(e)}"}), 500
-    
-    
+        print("ERROR:", e)
+        return jsonify({"reply": "Something went wrong. Check server logs."}), 500
+
 
 
 if __name__ == "__main__":
