@@ -6,22 +6,18 @@ import requests
 import json
 import re 
 
-SYSTEM_PROMPT = (
-    "You are a short, casual, friendly chatbot. "
-    "Keep responses under 2–3 sentences. "
-    "Be friendly and conversational."
-)
-
-SQL_PROMPT = """
-You are an assistant that answers ONLY using database results.
-
-Rules:
-- Use ONLY the data provided.
-- Do NOT invent companies or people.
-- If no data is found, say: "No records found."
-- Keep answers short and factual.
-"""
-
+SYSTEM_PROMPT = {
+    "role": "system",
+    "content": (
+        "You are a short, casual, friendly chatbot. "
+        "Read the user's input, infer intent, and respond naturally. "
+        "Keep responses under 2–3 sentences unless asked for more detail. "
+        "If the user expresses distress, respond with empathy first. "
+        "Do NOT write biographies, long posts, tutorials, code examples, or instructions. "
+        "Always be friendly, concise, and conversational. "
+        "Never start responses with 'Dear', 'Certainly', 'I hope this', 'As a chatbot', or 'Here is an example'."
+    )
+}
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
 MODEL_NAME = os.getenv("MODEL_NAME", "tinyllama")
@@ -189,78 +185,59 @@ def safe_sql(sql):
         w in s for w in ["insert","delete","update","drop","alter","exec"]
     )
 
-def run_sql(sql):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(sql)
-    cols = [c[0] for c in cur.description]
-    rows = cur.fetchall()
-    conn.close()
-    return [dict(zip(cols,r)) for r in rows]
-
-
-
 
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
 
-    data = request.get_json() or {}
-    question = (data.get("message") or "").strip()
-
-    if not question:
-        return jsonify({"reply":"Ask me something 🙂"})
-
-    # ---- Step 1: Ask LLM for SQL ----
-    planner = [
-        {"role":"system","content":SQL_PROMPT},
-        {"role":"user","content":question}
-    ]
-
-    r = requests.post(OLLAMA_URL, json={
-        "model": MODEL_NAME,
-        "messages": planner,
-        "stream": False
-    })
-
-    plan = r.json()["message"]["content"]
-
     try:
-        sql = json.loads(plan)["sql"]
-    except:
-        return jsonify({"reply":"I couldn't understand that query."})
+        data = request.get_json() or {}
+        user_msg = (data.get("message") or "").strip()
 
-    if not safe_sql(sql):
-        return jsonify({"reply":"Unsafe query blocked."})
+        if not user_msg:
+            return jsonify({"reply": "Ask me something 🙂"})
 
-    # ---- Step 2: Run DB ----
-    results = run_sql(sql)
+        lower = user_msg.lower()
 
-    if not results:
-        return jsonify({"reply":"No results found."})
+        # ✅ DB-only: companies by industry
+        if ("company" in lower or "companies" in lower) and (
+            "industry" in lower or "under" in lower or " in " in lower
+        ):
 
-    # ---- Step 3: Summarize with LLM ----
-    context = "\n".join(str(r) for r in results[:20])
+            industry = extract_industry(user_msg)
 
-    final_prompt = [
-        {"role":"system","content":SYSTEM_PROMPT},
-        {"role":"system","content":"Use ONLY the data below."},
-        {"role":"system","content":context},
-        {"role":"user","content":question}
-    ]
+            # Fallback: last word
+            if not industry:
+                industry = user_msg.split()[-1].title()
 
-    r2 = requests.post(OLLAMA_URL, json={
-        "model": MODEL_NAME,
-        "messages": final_prompt,
-        "stream": False
-    })
+            companies = get_companies_by_industry(industry)
 
-    answer = r2.json()["message"]["content"]
+            if not companies:
+                return jsonify({
+                    "reply": f"No companies found under '{industry}'."
+                })
 
-    return jsonify({"reply":answer})
+            # Show first 20 only
+            shown = companies[:20]
+
+            reply = (
+                f"{len(companies)} companies in {industry}:\n" +
+                "\n".join(f"- {c}" for c in shown)
+            )
+
+            if len(companies) > 20:
+                reply += "\n\nType 'more' to see the rest."
+
+            return jsonify({"reply": reply})
+
+        # ✅ Normal chat (no DB)
+        reply = ask_ollama(user_msg)
+        return jsonify({"reply": reply})
+
+    except Exception as e:
+        return jsonify({"reply": f"Error: {str(e)}"}), 500
     
     
+
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
