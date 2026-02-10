@@ -72,25 +72,45 @@ INTENT_LABELS = [
     "missing_fields",
 ]
 
-def classify_intent(user_msg: str) -> str:
-    # quick rules to reduce mistakes + speed up
+def classify_intent(user_msg: str):
     t = norm(user_msg)
 
-    if t.startswith("find ") or t.startswith("search "):
-        return "search_name"
+    # fast rules
+    if t.startswith(("find ", "search ")):
+        return "search_name", 1.0
+    if t.startswith(("hi", "hello", "hey")):
+        return "greeting", 1.0
     if "missing" in t or t.startswith("no "):
-        return "missing_fields"
+        return "missing_fields", 1.0
 
     res = zsc(user_msg, INTENT_LABELS, multi_label=False)
-    return res["labels"][0]  # top predicted label
+    return res["labels"][0], float(res["scores"][0])
+
 
 
 def extract_industry(message: str):
-    # matches: "in technology", "under technology", "for technology", "category technology"
-    m = re.search(r"(?:under|in|for|category)\s+([a-zA-Z &/-]+)", message.lower())
-    if m:
-        return m.group(1).strip().title()
+    t = norm(message)
+
+    # common patterns
+    patterns = [
+        r"(?:people|contacts|names|companies)\s+(?:in|under|from)\s+([a-zA-Z &/-]+)$",
+        r"(?:industry)\s*(?:is|=|:)?\s*([a-zA-Z &/-]+)$",
+        r"(?:in|under|for|category)\s+([a-zA-Z &/-]+)$",
+    ]
+
+    for p in patterns:
+        m = re.search(p, t, flags=re.IGNORECASE)
+        if m:
+            value = m.group(1).strip(" .").title()
+
+            # block greetings being treated as an industry
+            if value.lower() in {"hi", "hello", "hey"}:
+                return None
+
+            return value
+
     return None
+
 
 def norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip().lower())
@@ -313,6 +333,54 @@ def db_missing(field: str, limit: int = 200):
     conn.close()
     return rows
 
+JOB_STOPWORDS = {
+    "who","are","the","all","list","show","me","find","give","people","contacts","names",
+    "in","under","from","at","of","for","with"
+}
+
+def extract_job_keyword(message: str):
+    t = norm(message)
+
+    # try patterns first
+    m = re.search(r"(?:who\s+are\s+the\s+|list\s+all\s+|show\s+)(.+)$", t)
+    if m:
+        phrase = m.group(1).strip(" .")
+    else:
+        phrase = t
+
+    words = [w for w in re.findall(r"[a-z]+", phrase) if w not in JOB_STOPWORDS]
+
+    if not words:
+        return None
+
+    # if user wrote "biomedical engineer", keep phrase instead of single token
+    # pick up to 3 words to match titles like "sales manager", "biomedical engineer"
+    return " ".join(words[:3]).strip()
+
+def singularize(w: str) -> str:
+    w = (w or "").strip().lower()
+    if w.endswith("ies"):  # companies -> company
+        return w[:-3] + "y"
+    if w.endswith("s") and not w.endswith("ss"):
+        return w[:-1]
+    return w
+
+def db_people_with_job_keyword(keyword: str, limit: int = 50):
+    keyword = singularize(keyword)
+    like = f"%{keyword}%"
+    sql = """
+        SELECT TOP (?)
+            [First Name], [Last Name], [Job Title], [Office Name]
+        FROM dbo.BusinessCards
+        WHERE [Job Title] IS NOT NULL
+          AND LOWER([Job Title]) LIKE ?
+        ORDER BY [Last Name], [First Name];
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    rows = cur.execute(sql, limit, like).fetchall()
+    conn.close()
+    return rows
 
 # ---------------- ROUTES ----------------
 @app.route("/")
@@ -388,7 +456,6 @@ def submit_contact():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/api/chat", methods=["POST"])
-@app.route("/api/chat", methods=["POST"])
 def api_chat():
     try:
         data = request.get_json() or {}
@@ -397,11 +464,16 @@ def api_chat():
             return jsonify({"reply": "Ask me something 🙂"})
 
         t = norm(user_msg)  # ✅ you MUST define this
-        intent = classify_intent(user_msg)
+        intent, score = classify_intent(user_msg)
+
+        # if model is unsure, don't run random SQL
+        if score < 0.55:
+            return jsonify({"reply": "I’m not sure what you mean. Try: 'list companies', 'people in Healthcare', 'contacts from Megapixel', or 'email of Rachel Sim'."})
+
 
         # --- BERT ROUTING ---
         if intent == "companies_by_industry":
-            industry = extract_industry(user_msg) or user_msg.split()[-1].title()
+            industry = extract_industry(user_msg) 
             companies = get_companies_by_industry(industry)
             if not companies:
                 return jsonify({"reply": f"No companies found under '{industry}'."})
@@ -424,7 +496,7 @@ def api_chat():
             return jsonify({"reply": f"Contacts from {company}:\n" + "\n".join(lines)})
 
         if intent == "contacts_by_industry":
-            industry = extract_industry(user_msg) or user_msg.split()[-1].title()
+            industry = extract_industry(user_msg) 
             rows = db_contacts_by_industry(industry)
             if not rows:
                 return jsonify({"reply": f"No contacts found in '{industry}'."})
@@ -432,6 +504,19 @@ def api_chat():
             lines = [f"- {fn} {ln} — {jt or 'No job'} ({comp or 'No company'})"
                      for fn, ln, jt, comp, email, ind in rows[:20]]
             return jsonify({"reply": f"Contacts in {industry}:\n" + "\n".join(lines)})
+        
+        if intent == "people_by_job_keyword":
+            keyword = extract_job_keyword(user_msg)
+            if not keyword:
+                return jsonify({"reply": "Which role? Example: 'who are engineers' or 'list sales managers'."})
+
+            rows = db_people_with_job_keyword(keyword)
+            if not rows:
+                return jsonify({"reply": f"No contacts found with job title matching '{keyword}'."})
+
+            lines = [f"- {fn} {ln} — {jt} ({comp})" for fn, ln, jt, comp in rows[:20]]
+            return jsonify({"reply": f"People with job title matching '{keyword}':\n" + "\n".join(lines)})
+
 
         if intent in ("person_email", "person_job_title", "person_phone", "person_industry"):
             first, last = split_name(user_msg)
