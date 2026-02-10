@@ -4,6 +4,8 @@ import os
 import pyodbc
 import requests
 import re
+from transformers import pipeline
+
 
 # ✅ Load .env FIRST (before any os.getenv calls)
 load_dotenv()
