@@ -97,6 +97,30 @@ def db_contacts_by_company(company: str, limit: int = 50):
     return rows
 
 
+def db_contacts_by_industry(industry: str, limit: int = 50):
+    sql = """
+        SELECT TOP (?)
+            [First Name],
+            [Last Name],
+            [Job Title],
+            [Office Name],
+            [Office Email],
+            [Industry]
+        FROM dbo.BusinessCards
+        WHERE LOWER(LTRIM(RTRIM([Industry]))) = LOWER(?)
+        ORDER BY [Last Name], [First Name];
+    """
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    rows = cur.execute(sql, limit, industry).fetchall()
+
+    conn.close()
+
+    return rows
+
+
 def db_people_with_job_keyword(keyword: str, limit: int = 50):
     sql = """
         SELECT TOP (?)
@@ -107,10 +131,12 @@ def db_people_with_job_keyword(keyword: str, limit: int = 50):
         ORDER BY [Last Name], [First Name];
     """
     like = f"%{keyword.lower()}%"
+
     conn = get_db_connection()
     cur = conn.cursor()
     rows = cur.execute(sql, limit, like).fetchall()
     conn.close()
+
     return rows
 
 
@@ -239,7 +265,7 @@ def api_chat():
             return jsonify({"reply": reply})
 
         # 2) Contacts from a company: "show contacts from Megapixel"
-        if "contact" in t and ("from" in t or "at" in t):
+        if any(w in t for w in ["contact", "people"]) and any(w in t for w in ["from", "at"]):
             m = re.search(r"(?:from|at)\s+(.+)$", t)
             company = (m.group(1).strip() if m else "").title()
 
@@ -259,16 +285,32 @@ def api_chat():
                 reply += "\n\n(Showing first 20.)"
             return jsonify({"reply": reply})
 
-        # 3) Managers: "who are the Sales Managers" OR "job titles that have manager"
-        if "manager" in t:
-            keyword = "sales manager" if "sales" in t else "manager"
+        # 3) People by job keyword (manager, engineer, director, etc.)
+        if any(w in t for w in ["manager", "engineer", "director", "executive", "designer", "developer", "analyst", "consultant", "lead"]):
+            
+            # extract possible job keyword from user text
+            words = t.split()
+
+            stopwords = {"who", "are", "the", "all", "list", "show", "me", "find", "give", "with", "in"}
+            keywords = [w for w in words if w not in stopwords]
+
+            # pick longest word as job keyword (usually best match)
+            keyword = max(keywords, key=len)
+
             rows = db_people_with_job_keyword(keyword)
 
             if not rows:
                 return jsonify({"reply": f"No contacts found with job title containing '{keyword}'."})
 
-            lines = [f"- {fn} {ln} — {jt} ({comp})" for fn, ln, jt, comp in rows[:20]]
-            return jsonify({"reply": "Found:\n" + "\n".join(lines)})
+            lines = [
+                f"- {fn} {ln} — {jt} ({comp})"
+                for fn, ln, jt, comp in rows[:20]
+            ]
+
+            return jsonify({
+                "reply": f"People with '{keyword}' in job title:\n" + "\n".join(lines)
+            })
+
 
         # 4) Person lookups: industry/email/job title/number of a person
         if "industry" in t and ("industry of" in t or "industry for" in t or "what is" in t):
